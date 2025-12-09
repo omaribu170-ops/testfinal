@@ -1,80 +1,137 @@
 /* =====================================================
-   Entertainment Hub - ليالي الألعاب والبطولات
+   Entertainment Hub - ليالي الألعاب
+   مربوط بـ Supabase
 ===================================================== */
 
 "use client";
 
 import { useState, useEffect } from "react";
-import { Gamepad2, Plus, Trophy, Users, Calendar, Clock, CheckCircle2 } from "lucide-react";
+import { Plus, Gamepad2, Trash2, Loader2, Trophy, Calendar } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
-// بيانات تجريبية
-const upcomingGameNight = {
-    id: "next",
-    title: "ليلة الألعاب الكبرى",
-    event_date: "2024-12-14",
-    start_time: "18:00",
-    tournaments: [
-        { game_name: "UNO", prize_first: 500, prize_second: 200, prize_third: 100 },
-        { game_name: "شطرنج", prize_first: 300, prize_second: 150, prize_third: 50 },
-    ],
+interface GameNight {
+    id: string;
+    title: string;
+    event_date: string;
+    game_type: string;
+    entry_fee: number;
+    max_participants: number;
+    prize_pool: number;
+    status: string;
+    created_at: string;
+}
+
+const gameTypes = ["UNO", "Monopoly", "Chess", "PlayStation", "Board Games", "Card Games"];
+const statusLabels: Record<string, { label: string; color: string }> = {
+    upcoming: { label: "قادم", color: "bg-blue-100 text-blue-700" },
+    ongoing: { label: "جاري", color: "bg-green-100 text-green-700" },
+    completed: { label: "منتهي", color: "bg-gray-100 text-gray-700" },
+    cancelled: { label: "ملغي", color: "bg-red-100 text-red-700" }
 };
 
-const pastGameNights = [
-    {
-        id: "1", title: "ليلة بورد جيمز", event_date: "2024-12-07", participants: 24, total_prizes: 1500, tournaments: [
-            { game_name: "مونوبولي", winners: [{ name: "أحمد محمد", rank: 1, prize: 500 }, { name: "سارة أحمد", rank: 2, prize: 200 }] },
-        ]
-    },
-    {
-        id: "2", title: "ليلة الكارت جيمز", event_date: "2024-11-30", participants: 18, total_prizes: 1200, tournaments: [
-            { game_name: "UNO", winners: [{ name: "خالد عمر", rank: 1, prize: 400 }, { name: "نورا سعيد", rank: 2, prize: 200 }] },
-        ]
-    },
-];
+function AddEventModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) {
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        title: "", event_date: "", game_type: "UNO", entry_fee: 50, max_participants: 16, prize_pool: 500
+    });
 
-// Countdown Component
-function Countdown({ targetDate }: { targetDate: string }) {
-    const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const supabase = createClient();
+            await supabase.from("game_nights").insert({ ...formData, status: "upcoming" });
+            onSuccess();
+            onClose();
+            setFormData({ title: "", event_date: "", game_type: "UNO", entry_fee: 50, max_participants: 16, prize_pool: 500 });
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    useEffect(() => {
-        const target = new Date(targetDate).getTime();
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const diff = target - now;
-            if (diff > 0) {
-                setTimeLeft({
-                    days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-                    hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-                    minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-                    seconds: Math.floor((diff % (1000 * 60)) / 1000),
-                });
-            }
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [targetDate]);
+    if (!isOpen) return null;
 
     return (
-        <div className="flex gap-4 justify-center">
-            {[
-                { value: timeLeft.days, label: "يوم" },
-                { value: timeLeft.hours, label: "ساعة" },
-                { value: timeLeft.minutes, label: "دقيقة" },
-                { value: timeLeft.seconds, label: "ثانية" },
-            ].map((item, i) => (
-                <div key={i} className="text-center">
-                    <div className="w-16 h-16 rounded-xl bg-brand-gradient flex items-center justify-center text-white text-2xl font-bold">
-                        {item.value.toString().padStart(2, "0")}
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h2 className="text-xl font-bold mb-6">ليلة ألعاب جديدة</h2>
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">عنوان الحدث *</label>
+                        <input type="text" className="input-glass" placeholder="مثال: بطولة UNO الأسبوعية" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">{item.label}</p>
-                </div>
-            ))}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">التاريخ *</label>
+                            <input type="date" className="input-glass" value={formData.event_date} onChange={e => setFormData({ ...formData, event_date: e.target.value })} required />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-2">نوع اللعبة</label>
+                            <select className="input-glass" value={formData.game_type} onChange={e => setFormData({ ...formData, game_type: e.target.value })}>
+                                {gameTypes.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">رسوم الدخول</label>
+                            <input type="number" className="input-glass" value={formData.entry_fee} onChange={e => setFormData({ ...formData, entry_fee: Number(e.target.value) })} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-2">الحد الأقصى</label>
+                            <input type="number" className="input-glass" value={formData.max_participants} onChange={e => setFormData({ ...formData, max_participants: Number(e.target.value) })} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-2">الجوائز</label>
+                            <input type="number" className="input-glass" value={formData.prize_pool} onChange={e => setFormData({ ...formData, prize_pool: Number(e.target.value) })} />
+                        </div>
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <button type="submit" className="btn-gradient flex-1" disabled={loading}>
+                            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : "إنشاء"}
+                        </button>
+                        <button type="button" onClick={onClose} className="btn-glass flex-1">إلغاء</button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }
 
 export default function EntertainmentPage() {
+    const [events, setEvents] = useState<GameNight[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedGameNight, setSelectedGameNight] = useState<typeof pastGameNights[0] | null>(null);
+
+    const fetchEvents = async () => {
+        setLoading(true);
+        try {
+            const supabase = createClient();
+            const { data } = await supabase.from("game_nights").select("*").order("event_date", { ascending: false });
+            setEvents(data as GameNight[] || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchEvents(); }, []);
+
+    const deleteEvent = async (id: string) => {
+        if (!confirm("هل أنت متأكد؟")) return;
+        const supabase = createClient();
+        await supabase.from("game_nights").delete().eq("id", id);
+        fetchEvents();
+    };
+
+    const updateStatus = async (id: string, status: string) => {
+        const supabase = createClient();
+        await supabase.from("game_nights").update({ status }).eq("id", id);
+        fetchEvents();
+    };
 
     return (
         <div className="animate-fadeIn">
@@ -84,125 +141,50 @@ export default function EntertainmentPage() {
                         <Gamepad2 className="text-brand-start" />
                         Entertainment Hub
                     </h1>
-                    <p className="text-gray-500 mt-1">إدارة ليالي الألعاب والبطولات</p>
+                    <p className="text-gray-500 mt-1">{events.length} حدث</p>
                 </div>
                 <button onClick={() => setIsModalOpen(true)} className="btn-gradient flex items-center gap-2">
-                    <Plus size={20} />
-                    بطولة جديدة
+                    <Plus size={20} /> ليلة ألعاب جديدة
                 </button>
             </div>
 
-            {/* البطولة القادمة */}
-            <section className="mb-8">
-                <h2 className="text-xl font-semibold mb-4">البطولة القادمة</h2>
-                <div className="glass-card p-8 text-center">
-                    <h3 className="text-2xl font-bold gradient-text mb-2">{upcomingGameNight.title}</h3>
-                    <p className="text-gray-500 mb-6 flex items-center justify-center gap-2">
-                        <Calendar size={18} />
-                        {new Date(upcomingGameNight.event_date).toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-                        <Clock size={18} className="mr-2" />
-                        {upcomingGameNight.start_time}
-                    </p>
-                    <Countdown targetDate={`${upcomingGameNight.event_date}T${upcomingGameNight.start_time}`} />
-                    <div className="mt-6 flex gap-4 justify-center">
-                        {upcomingGameNight.tournaments.map((t, i) => (
-                            <div key={i} className="bg-white/50 rounded-xl p-4">
-                                <p className="font-bold">{t.game_name}</p>
-                                <p className="text-sm text-gray-500">🥇 {t.prize_first} | 🥈 {t.prize_second} | 🥉 {t.prize_third}</p>
-                            </div>
-                        ))}
-                    </div>
-                    <button className="btn-glass mt-6">
-                        <Users size={18} className="inline ml-2" />
-                        إضافة مشاركين
-                    </button>
-                </div>
-            </section>
-
-            {/* سجل البطولات */}
-            <section>
-                <h2 className="text-xl font-semibold mb-4">سجل ليالي الألعاب</h2>
-                <div className="glass-card overflow-hidden">
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>الاسم</th>
-                                <th>التاريخ</th>
-                                <th>المشاركين</th>
-                                <th>إجمالي الجوائز</th>
-                                <th>الإجراء</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {pastGameNights.map((gn) => (
-                                <tr key={gn.id}>
-                                    <td className="font-medium">{gn.title}</td>
-                                    <td>{new Date(gn.event_date).toLocaleDateString("ar-EG")}</td>
-                                    <td>{gn.participants}</td>
-                                    <td>{gn.total_prizes} ج.م</td>
-                                    <td><button onClick={() => setSelectedGameNight(gn)} className="text-blue-500 hover:underline">التفاصيل</button></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            {/* Modal إضافة بطولة */}
-            {isModalOpen && (
-                <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-                    <div className="modal-content max-w-xl" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-xl font-bold mb-6">إضافة بطولة جديدة</h2>
-                        <form className="space-y-4">
-                            <div><label className="block text-sm font-medium mb-2">اسم البطولة</label><input type="text" className="input-glass" /></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium mb-2">التاريخ</label><input type="date" className="input-glass" /></div>
-                                <div><label className="block text-sm font-medium mb-2">الوقت</label><input type="time" className="input-glass" /></div>
-                            </div>
-                            <div className="border-t pt-4 mt-4">
-                                <h3 className="font-medium mb-3">الألعاب والجوائز</h3>
-                                <div className="space-y-3">
-                                    <div className="grid grid-cols-4 gap-2">
-                                        <input type="text" className="input-glass" placeholder="اسم اللعبة" />
-                                        <input type="number" className="input-glass" placeholder="🥇 الأول" />
-                                        <input type="number" className="input-glass" placeholder="🥈 الثاني" />
-                                        <input type="number" className="input-glass" placeholder="🥉 الثالث" />
-                                    </div>
+            {loading ? (
+                <div className="text-center py-12"><Loader2 className="animate-spin mx-auto" size={40} /></div>
+            ) : events.length === 0 ? (
+                <div className="text-center py-12 glass-card"><Gamepad2 size={48} className="mx-auto mb-4 text-gray-400" /><p className="text-gray-500">لا يوجد أحداث</p></div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {events.map(event => {
+                        const status = statusLabels[event.status] || statusLabels.upcoming;
+                        return (
+                            <div key={event.id} className="glass-card p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className={`badge ${status.color}`}>{status.label}</span>
+                                    <button onClick={() => deleteEvent(event.id)} className="p-1 hover:bg-red-50 rounded-lg text-red-500"><Trash2 size={16} /></button>
                                 </div>
-                                <button type="button" className="text-blue-500 text-sm mt-2">+ إضافة لعبة أخرى</button>
+                                <h3 className="font-bold text-lg mb-2">{event.title}</h3>
+                                <div className="space-y-1 text-sm text-gray-500 mb-4">
+                                    <p className="flex items-center gap-2"><Calendar size={14} /> {event.event_date}</p>
+                                    <p className="flex items-center gap-2"><Gamepad2 size={14} /> {event.game_type}</p>
+                                    <p className="flex items-center gap-2"><Trophy size={14} /> جوائز: {event.prize_pool} ج.م</p>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span>رسوم: {event.entry_fee} ج.م</span>
+                                    <span>الحد: {event.max_participants} لاعب</span>
+                                </div>
+                                {event.status === "upcoming" && (
+                                    <button onClick={() => updateStatus(event.id, "ongoing")} className="btn-glass w-full mt-4">بدء الحدث</button>
+                                )}
+                                {event.status === "ongoing" && (
+                                    <button onClick={() => updateStatus(event.id, "completed")} className="btn-gradient w-full mt-4">إنهاء</button>
+                                )}
                             </div>
-                            <div className="flex gap-3 pt-4">
-                                <button type="submit" className="btn-gradient flex-1">إنشاء البطولة</button>
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-glass flex-1">إلغاء</button>
-                            </div>
-                        </form>
-                    </div>
+                        );
+                    })}
                 </div>
             )}
 
-            {/* Modal تفاصيل ليلة ألعاب */}
-            {selectedGameNight && (
-                <div className="modal-overlay" onClick={() => setSelectedGameNight(null)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-xl font-bold mb-4">{selectedGameNight.title}</h2>
-                        <p className="text-gray-500 mb-6">{new Date(selectedGameNight.event_date).toLocaleDateString("ar-EG")}</p>
-                        {selectedGameNight.tournaments.map((t, i) => (
-                            <div key={i} className="mb-4">
-                                <h3 className="font-bold flex items-center gap-2"><Trophy size={18} className="text-yellow-500" />{t.game_name}</h3>
-                                <div className="space-y-2 mt-2">
-                                    {t.winners.map((w, j) => (
-                                        <div key={j} className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
-                                            <span className="flex items-center gap-2">{w.rank === 1 ? "🥇" : w.rank === 2 ? "🥈" : "🥉"} {w.name}</span>
-                                            <span className="font-bold">{w.prize} ج.م</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                        <button onClick={() => setSelectedGameNight(null)} className="btn-glass w-full mt-4">إغلاق</button>
-                    </div>
-                </div>
-            )}
+            <AddEventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchEvents} />
         </div>
     );
 }

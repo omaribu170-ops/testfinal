@@ -1,329 +1,271 @@
 /* =====================================================
    صفحة الحجز - Booking Page
-   حجز مسبق للترابيزات
+   مربوط بـ Supabase
 ===================================================== */
 
 "use client";
 
-import { useState } from "react";
-import { Calendar, Clock, Users, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, Clock, Table2, Loader2, ArrowRight, Check } from "lucide-react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
-const mockTables = [
-    { id: "1", name: "ترابيزة VIP 1", price: 50, capacity: "2-6", available: true },
-    { id: "2", name: "ترابيزة VIP 2", price: 50, capacity: "2-6", available: true },
-    { id: "3", name: "ترابيزة عادية 1", price: 30, capacity: "1-4", available: false },
-    { id: "4", name: "ترابيزة عادية 2", price: 30, capacity: "1-4", available: true },
-    { id: "5", name: "ترابيزة كبيرة", price: 40, capacity: "4-10", available: true },
-];
+interface Table {
+    id: string;
+    name: string;
+    type: string;
+    capacity: number;
+    hourly_rate: number;
+    status: string;
+}
 
-const timeSlots = [
-    "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
-    "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"
-];
+interface Booking {
+    id: string;
+    table_id: string;
+    tables: { name: string } | null;
+    booking_date: string;
+    start_time: string;
+    end_time: string;
+    status: string;
+}
 
 export default function BookingPage() {
-    const [step, setStep] = useState(1);
-    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-    const [selectedTime, setSelectedTime] = useState("");
-    const [selectedTable, setSelectedTable] = useState("");
-    const [guests, setGuests] = useState(1);
-    const [duration, setDuration] = useState(2);
-    const [isConfirmed, setIsConfirmed] = useState(false);
+    const [tables, setTables] = useState<Table[]>([]);
+    const [userBookings, setUserBookings] = useState<Booking[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+    const [bookingDate, setBookingDate] = useState("");
+    const [startTime, setStartTime] = useState("");
+    const [endTime, setEndTime] = useState("");
+    const [submitting, setSubmitting] = useState(false);
 
-    // توليد أيام الأسبوع القادم
-    const getNextDays = () => {
-        const days = [];
-        const today = new Date();
-        for (let i = 0; i < 7; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() + i);
-            days.push(date);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const supabase = createClient();
+
+            // جلب الترابيزات المتاحة
+            const { data: tablesData } = await supabase
+                .from("tables")
+                .select("*")
+                .eq("status", "available")
+                .order("name");
+
+            // جلب حجوزات المستخدم
+            const { data: bookingsData } = await supabase
+                .from("bookings")
+                .select("*, tables(name)")
+                .gte("booking_date", new Date().toISOString().split("T")[0])
+                .order("booking_date");
+
+            setTables(tablesData as Table[] || []);
+            setUserBookings(bookingsData as Booking[] || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
-        return days;
     };
 
-    const days = getNextDays();
+    useEffect(() => { fetchData(); }, []);
 
-    // حساب السعر
-    const selectedTableData = mockTables.find(t => t.id === selectedTable);
-    const estimatedPrice = selectedTableData ? selectedTableData.price * duration * guests : 0;
+    const handleBooking = async () => {
+        if (!selectedTable || !bookingDate || !startTime || !endTime) {
+            alert("يرجى ملء جميع الحقول");
+            return;
+        }
 
-    // تأكيد الحجز
-    const confirmBooking = () => {
-        setIsConfirmed(true);
+        setSubmitting(true);
+        try {
+            const supabase = createClient();
+            const { error } = await supabase
+                .from("bookings")
+                .insert({
+                    table_id: selectedTable.id,
+                    booking_date: bookingDate,
+                    start_time: startTime,
+                    end_time: endTime,
+                    status: "pending"
+                });
+
+            if (error) {
+                alert("حدث خطأ: " + error.message);
+            } else {
+                alert("تم إرسال طلب الحجز بنجاح!");
+                setSelectedTable(null);
+                setBookingDate("");
+                setStartTime("");
+                setEndTime("");
+                fetchData();
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
-    if (isConfirmed) {
-        return (
-            <div className="animate-fadeIn text-center py-12">
-                <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle2 size={48} className="text-green-500" />
-                </div>
-                <h1 className="text-2xl font-bold mb-2">تم الحجز بنجاح! 🎉</h1>
-                <p className="text-gray-500 mb-6">سيتم إرسال تأكيد على الإيميل والواتساب</p>
+    const statusLabels: Record<string, { label: string; color: string }> = {
+        pending: { label: "قيد المراجعة", color: "bg-yellow-100 text-yellow-700" },
+        confirmed: { label: "مؤكد", color: "bg-green-100 text-green-700" },
+        cancelled: { label: "ملغي", color: "bg-red-100 text-red-700" }
+    };
 
-                <div className="glass-card p-6 text-right max-w-sm mx-auto mb-6">
-                    <h3 className="font-bold mb-4">تفاصيل الحجز</h3>
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">التاريخ:</span>
-                            <span>{selectedDate?.toLocaleDateString("ar-EG")}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">الوقت:</span>
-                            <span>{selectedTime}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">الترابيزة:</span>
-                            <span>{selectedTableData?.name}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">عدد الأفراد:</span>
-                            <span>{guests}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">المدة:</span>
-                            <span>{duration} ساعات</span>
-                        </div>
-                        <hr className="my-2" />
-                        <div className="flex justify-between font-bold">
-                            <span>السعر المتوقع:</span>
-                            <span className="gradient-text">{estimatedPrice} ج.م</span>
-                        </div>
-                    </div>
-                </div>
-
-                <button
-                    onClick={() => {
-                        setIsConfirmed(false);
-                        setStep(1);
-                        setSelectedDate(null);
-                        setSelectedTime("");
-                        setSelectedTable("");
-                    }}
-                    className="btn-glass"
-                >
-                    حجز آخر
-                </button>
-            </div>
-        );
-    }
+    const typeLabels: Record<string, string> = {
+        regular: "عادية",
+        vip: "VIP",
+        large: "كبيرة",
+        private: "خاصة"
+    };
 
     return (
-        <div className="animate-fadeIn">
-            <h1 className="text-2xl font-bold mb-6">احجز مكانك</h1>
-
-            {/* مؤشر الخطوات */}
-            <div className="flex items-center justify-center gap-2 mb-8">
-                {[1, 2, 3].map(s => (
-                    <div
-                        key={s}
-                        className={`w-3 h-3 rounded-full transition-all ${s === step ? "w-8 bg-brand-gradient" : s < step ? "bg-green-500" : "bg-gray-300"
-                            }`}
-                    />
-                ))}
-            </div>
-
-            {/* الخطوة 1: اختيار التاريخ والوقت */}
-            {step === 1 && (
-                <div className="space-y-6">
-                    {/* اختيار اليوم */}
-                    <div>
-                        <h3 className="font-semibold mb-3 flex items-center gap-2">
-                            <Calendar size={20} />
-                            اختر اليوم
-                        </h3>
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                            {days.map((date, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setSelectedDate(date)}
-                                    className={`flex-shrink-0 w-16 p-3 rounded-xl text-center transition-all ${selectedDate?.toDateString() === date.toDateString()
-                                            ? "bg-brand-gradient text-white"
-                                            : "glass-card"
-                                        }`}
-                                >
-                                    <p className="text-xs">{date.toLocaleDateString("ar-EG", { weekday: "short" })}</p>
-                                    <p className="text-lg font-bold">{date.getDate()}</p>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* اختيار الوقت */}
-                    <div>
-                        <h3 className="font-semibold mb-3 flex items-center gap-2">
-                            <Clock size={20} />
-                            اختر الوقت
-                        </h3>
-                        <div className="grid grid-cols-4 gap-2">
-                            {timeSlots.map(time => (
-                                <button
-                                    key={time}
-                                    onClick={() => setSelectedTime(time)}
-                                    className={`p-3 rounded-xl text-center transition-all ${selectedTime === time
-                                            ? "bg-brand-gradient text-white"
-                                            : "glass-card"
-                                        }`}
-                                >
-                                    {time}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={() => setStep(2)}
-                        disabled={!selectedDate || !selectedTime}
-                        className="btn-gradient w-full disabled:opacity-50"
-                    >
-                        التالي
-                        <ChevronLeft size={20} className="inline mr-2" />
-                    </button>
+        <div className="min-h-screen bg-[var(--background)] pb-24">
+            {/* الهيدر */}
+            <header className="glass border-b border-white/20 p-4 sticky top-0 z-10">
+                <div className="max-w-lg mx-auto flex items-center gap-4">
+                    <Link href="/" className="p-2 hover:bg-white/20 rounded-xl">
+                        <ArrowRight size={24} />
+                    </Link>
+                    <h1 className="text-xl font-bold">حجز ترابيزة</h1>
                 </div>
-            )}
+            </header>
 
-            {/* الخطوة 2: اختيار الترابيزة */}
-            {step === 2 && (
-                <div className="space-y-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <button onClick={() => setStep(1)} className="p-2 rounded-lg glass">
-                            <ChevronRight size={20} />
-                        </button>
-                        <h3 className="font-semibold">اختر الترابيزة</h3>
+            <div className="max-w-lg mx-auto px-4 py-6">
+                {loading ? (
+                    <div className="text-center py-12">
+                        <Loader2 className="animate-spin mx-auto" size={40} />
                     </div>
+                ) : (
+                    <>
+                        {/* نموذج الحجز */}
+                        <div className="glass-card p-4 mb-6">
+                            <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                <Calendar size={20} />
+                                حجز جديد
+                            </h2>
 
-                    <div className="space-y-3">
-                        {mockTables.map(table => (
-                            <button
-                                key={table.id}
-                                onClick={() => table.available && setSelectedTable(table.id)}
-                                disabled={!table.available}
-                                className={`w-full p-4 rounded-xl text-right transition-all ${selectedTable === table.id
-                                        ? "bg-brand-gradient text-white"
-                                        : table.available
-                                            ? "glass-card hover:scale-[1.02]"
-                                            : "glass-card opacity-50 cursor-not-allowed"
-                                    }`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="font-bold">{table.name}</p>
-                                        <p className={`text-sm ${selectedTable === table.id ? "text-white/80" : "text-gray-500"}`}>
-                                            {table.capacity} أفراد
-                                        </p>
+                            <div className="space-y-4">
+                                {/* اختيار الترابيزة */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">الترابيزة</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {tables.map(table => (
+                                            <button
+                                                key={table.id}
+                                                onClick={() => setSelectedTable(table)}
+                                                className={`p-3 rounded-xl text-right ${selectedTable?.id === table.id
+                                                        ? "bg-brand-gradient text-white"
+                                                        : "bg-white/50 hover:bg-white/70"
+                                                    }`}
+                                            >
+                                                <p className="font-bold">{table.name}</p>
+                                                <p className="text-xs opacity-80">
+                                                    {typeLabels[table.type]} • {table.capacity} أشخاص
+                                                </p>
+                                                <p className="text-xs opacity-80">{table.hourly_rate} ج.م/ساعة</p>
+                                            </button>
+                                        ))}
                                     </div>
-                                    <div className="text-left">
-                                        <p className="font-bold">{table.price} ج.م</p>
-                                        <p className={`text-sm ${selectedTable === table.id ? "text-white/80" : "text-gray-500"}`}>
-                                            للساعة/الفرد
-                                        </p>
+                                    {tables.length === 0 && (
+                                        <p className="text-gray-500 text-center py-4">لا توجد ترابيزات متاحة</p>
+                                    )}
+                                </div>
+
+                                {/* التاريخ والوقت */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">التاريخ</label>
+                                    <input
+                                        type="date"
+                                        className="input-glass"
+                                        min={new Date().toISOString().split("T")[0]}
+                                        value={bookingDate}
+                                        onChange={e => setBookingDate(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2">من</label>
+                                        <input
+                                            type="time"
+                                            className="input-glass"
+                                            value={startTime}
+                                            onChange={e => setStartTime(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2">إلى</label>
+                                        <input
+                                            type="time"
+                                            className="input-glass"
+                                            value={endTime}
+                                            onChange={e => setEndTime(e.target.value)}
+                                        />
                                     </div>
                                 </div>
-                                {!table.available && (
-                                    <p className="text-red-500 text-sm mt-2">محجوزة في هذا الوقت</p>
-                                )}
-                            </button>
-                        ))}
-                    </div>
 
-                    <button
-                        onClick={() => setStep(3)}
-                        disabled={!selectedTable}
-                        className="btn-gradient w-full disabled:opacity-50"
-                    >
-                        التالي
-                        <ChevronLeft size={20} className="inline mr-2" />
-                    </button>
+                                <button
+                                    onClick={handleBooking}
+                                    disabled={submitting || !selectedTable}
+                                    className="btn-gradient w-full flex items-center justify-center gap-2"
+                                >
+                                    {submitting ? <Loader2 className="animate-spin" size={20} /> : <Check size={20} />}
+                                    تأكيد الحجز
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* حجوزاتي */}
+                        <div>
+                            <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                <Clock size={20} />
+                                حجوزاتي
+                            </h2>
+                            {userBookings.length === 0 ? (
+                                <div className="text-center py-8 glass-card">
+                                    <Table2 size={40} className="mx-auto mb-2 text-gray-400" />
+                                    <p className="text-gray-500">لا يوجد حجوزات</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {userBookings.map(booking => {
+                                        const status = statusLabels[booking.status] || statusLabels.pending;
+                                        return (
+                                            <div key={booking.id} className="glass-card p-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h3 className="font-bold">{booking.tables?.name}</h3>
+                                                    <span className={`badge ${status.color}`}>{status.label}</span>
+                                                </div>
+                                                <div className="flex items-center gap-4 text-sm text-gray-500">
+                                                    <span className="flex items-center gap-1">
+                                                        <Calendar size={14} />
+                                                        {booking.booking_date}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock size={14} />
+                                                        {booking.start_time} - {booking.end_time}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Bottom Navigation */}
+            <nav className="fixed bottom-0 left-0 right-0 glass border-t border-white/20 px-6 py-3 safe-bottom">
+                <div className="max-w-lg mx-auto flex items-center justify-around">
+                    <Link href="/" className="nav-item"><span className="text-2xl">🏠</span></Link>
+                    <Link href="/booking" className="nav-item active"><span className="text-2xl">📅</span></Link>
+                    <Link href="/tools" className="nav-item"><span className="text-2xl">🛠️</span></Link>
+                    <Link href="/store" className="nav-item"><span className="text-2xl">🛒</span></Link>
+                    <Link href="/profile" className="nav-item"><span className="text-2xl">👤</span></Link>
                 </div>
-            )}
-
-            {/* الخطوة 3: التفاصيل والتأكيد */}
-            {step === 3 && (
-                <div className="space-y-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <button onClick={() => setStep(2)} className="p-2 rounded-lg glass">
-                            <ChevronRight size={20} />
-                        </button>
-                        <h3 className="font-semibold">تفاصيل الحجز</h3>
-                    </div>
-
-                    {/* عدد الأفراد */}
-                    <div>
-                        <label className="block font-medium mb-2 flex items-center gap-2">
-                            <Users size={20} />
-                            عدد الأفراد
-                        </label>
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setGuests(Math.max(1, guests - 1))}
-                                className="w-12 h-12 rounded-xl glass font-bold text-xl"
-                            >
-                                -
-                            </button>
-                            <span className="text-2xl font-bold w-12 text-center">{guests}</span>
-                            <button
-                                onClick={() => setGuests(guests + 1)}
-                                className="w-12 h-12 rounded-xl glass font-bold text-xl"
-                            >
-                                +
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* المدة */}
-                    <div>
-                        <label className="block font-medium mb-2 flex items-center gap-2">
-                            <Clock size={20} />
-                            المدة (بالساعات)
-                        </label>
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setDuration(Math.max(1, duration - 1))}
-                                className="w-12 h-12 rounded-xl glass font-bold text-xl"
-                            >
-                                -
-                            </button>
-                            <span className="text-2xl font-bold w-12 text-center">{duration}</span>
-                            <button
-                                onClick={() => setDuration(duration + 1)}
-                                className="w-12 h-12 rounded-xl glass font-bold text-xl"
-                            >
-                                +
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* ملخص السعر */}
-                    <div className="glass-card p-4">
-                        <h4 className="font-medium mb-3">ملخص الحجز</h4>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">التاريخ:</span>
-                                <span>{selectedDate?.toLocaleDateString("ar-EG")}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">الوقت:</span>
-                                <span>{selectedTime}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">الترابيزة:</span>
-                                <span>{selectedTableData?.name}</span>
-                            </div>
-                            <hr className="my-2" />
-                            <div className="flex justify-between text-lg font-bold">
-                                <span>السعر المتوقع:</span>
-                                <span className="gradient-text">{estimatedPrice} ج.م</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button onClick={confirmBooking} className="btn-gradient w-full">
-                        <CheckCircle2 size={20} className="inline ml-2" />
-                        تأكيد الحجز
-                    </button>
-                </div>
-            )}
+            </nav>
         </div>
     );
 }

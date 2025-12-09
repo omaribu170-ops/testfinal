@@ -1,45 +1,110 @@
 /* =====================================================
    طلبات المكان - Requests Management
+   مربوط بـ Supabase
 ===================================================== */
 
 "use client";
 
-import { useState } from "react";
-import { Package, Plus, Download, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Package, Check, X, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
-// بيانات تجريبية
-const mockRequests = [
-    { id: "1", type: "supply", item_name: "مناديل ورقية", quantity: 10, estimated_cost: 150, status: "pending", requested_by: "أحمد محمد", created_at: "2024-12-09" },
-    { id: "2", type: "maintenance", item_name: "إصلاح تكييف", quantity: 1, estimated_cost: 500, status: "received", requested_by: "سارة أحمد", created_at: "2024-12-08" },
-    { id: "3", type: "food", item_name: "قهوة تركي", quantity: 5, estimated_cost: 250, status: "completed", requested_by: "محمد علي", created_at: "2024-12-07" },
-];
+interface Request {
+    id: string;
+    item_name: string;
+    quantity: number;
+    requested_by: string | null;
+    status: string;
+    notes: string | null;
+    created_at: string;
+}
 
-const typeLabels: Record<string, string> = {
-    supply: "مستلزمات",
-    maintenance: "صيانة",
-    food: "طعام",
-    drink: "مشروبات",
-    other: "أخرى",
+const statusLabels: Record<string, { label: string; color: string }> = {
+    pending: { label: "قيد الانتظار", color: "bg-yellow-100 text-yellow-700" },
+    approved: { label: "موافق عليه", color: "bg-green-100 text-green-700" },
+    rejected: { label: "مرفوض", color: "bg-red-100 text-red-700" },
+    ordered: { label: "تم الطلب", color: "bg-blue-100 text-blue-700" }
 };
 
-const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-    pending: { label: "في الانتظار", color: "badge-warning", icon: Clock },
-    received: { label: "تم الاستلام", color: "badge-info", icon: AlertCircle },
-    completed: { label: "تم التنفيذ", color: "badge-success", icon: CheckCircle2 },
-};
+function AddRequestModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) {
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({ item_name: "", quantity: 1, requested_by: "", notes: "" });
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const supabase = createClient();
+            await supabase.from("requests").insert({ ...formData, status: "pending" });
+            onSuccess();
+            onClose();
+            setFormData({ item_name: "", quantity: 1, requested_by: "", notes: "" });
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h2 className="text-xl font-bold mb-6">طلب جديد</h2>
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">اسم المنتج/الطلب *</label>
+                        <input type="text" className="input-glass" value={formData.item_name} onChange={e => setFormData({ ...formData, item_name: e.target.value })} required />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">الكمية</label>
+                        <input type="number" className="input-glass" min={1} value={formData.quantity} onChange={e => setFormData({ ...formData, quantity: Number(e.target.value) })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">مقدم الطلب</label>
+                        <input type="text" className="input-glass" value={formData.requested_by} onChange={e => setFormData({ ...formData, requested_by: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">ملاحظات</label>
+                        <textarea className="input-glass" rows={2} value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <button type="submit" className="btn-gradient flex-1" disabled={loading}>
+                            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : "إرسال"}
+                        </button>
+                        <button type="button" onClick={onClose} className="btn-glass flex-1">إلغاء</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
 
 export default function RequestsPage() {
+    const [requests, setRequests] = useState<Request[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const exportToCSV = () => {
-        const headers = ["النوع", "الطلب", "الكمية", "التكلفة", "الحالة", "مقدم الطلب", "التاريخ"];
-        const data = mockRequests.map(r => [typeLabels[r.type], r.item_name, r.quantity, r.estimated_cost, statusConfig[r.status].label, r.requested_by, r.created_at]);
-        const csvContent = [headers.join(","), ...data.map(row => row.join(","))].join("\n");
-        const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "requests.csv";
-        link.click();
+    const fetchRequests = async () => {
+        setLoading(true);
+        try {
+            const supabase = createClient();
+            const { data } = await supabase.from("requests").select("*").order("created_at", { ascending: false });
+            setRequests(data as Request[] || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchRequests(); }, []);
+
+    const updateStatus = async (id: string, status: string) => {
+        const supabase = createClient();
+        await supabase.from("requests").update({ status }).eq("id", id);
+        fetchRequests();
     };
 
     return (
@@ -50,103 +115,53 @@ export default function RequestsPage() {
                         <Package className="text-brand-start" />
                         طلبات المكان
                     </h1>
-                    <p className="text-gray-500 mt-1">إدارة طلبات المستلزمات والصيانة</p>
+                    <p className="text-gray-500 mt-1">{requests.length} طلب</p>
                 </div>
-                <div className="flex gap-3">
-                    <button onClick={exportToCSV} className="btn-glass flex items-center gap-2">
-                        <Download size={18} />
-                        تصدير CSV
-                    </button>
-                    <button onClick={() => setIsModalOpen(true)} className="btn-gradient flex items-center gap-2">
-                        <Plus size={20} />
-                        طلب جديد
-                    </button>
-                </div>
+                <button onClick={() => setIsModalOpen(true)} className="btn-gradient flex items-center gap-2">
+                    <Plus size={20} /> طلب جديد
+                </button>
             </div>
 
-            <div className="glass-card overflow-hidden">
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th>النوع</th>
-                            <th>الطلب</th>
-                            <th>الكمية</th>
-                            <th>التكلفة المتوقعة</th>
-                            <th>مقدم الطلب</th>
-                            <th>التاريخ</th>
-                            <th>الحالة</th>
-                            <th>الإجراء</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {mockRequests.map((request) => {
-                            const status = statusConfig[request.status];
-                            const StatusIcon = status.icon;
-                            return (
-                                <tr key={request.id}>
-                                    <td><span className="badge badge-info">{typeLabels[request.type]}</span></td>
-                                    <td className="font-medium">{request.item_name}</td>
-                                    <td>{request.quantity}</td>
-                                    <td>{request.estimated_cost} ج.م</td>
-                                    <td>{request.requested_by}</td>
-                                    <td>{request.created_at}</td>
-                                    <td><span className={`badge ${status.color} flex items-center gap-1`}><StatusIcon size={14} />{status.label}</span></td>
-                                    <td>
-                                        {request.status !== "completed" && (
-                                            <button className="text-blue-500 hover:underline text-sm">
-                                                تغيير الحالة
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Modal إضافة طلب */}
-            {isModalOpen && (
-                <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-xl font-bold mb-6">إضافة طلب جديد</h2>
-                        <form className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-2">نوع الطلب</label>
-                                <select className="input-glass">
-                                    <option value="supply">مستلزمات نظافة</option>
-                                    <option value="food">طعام</option>
-                                    <option value="drink">مشروبات</option>
-                                    <option value="maintenance">صيانة</option>
-                                    <option value="other">أخرى</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">اسم الطلب</label>
-                                <input type="text" className="input-glass" placeholder="مثال: مناديل ورقية" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">الكمية</label>
-                                    <input type="number" className="input-glass" defaultValue={1} />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">التكلفة المتوقعة</label>
-                                    <input type="number" className="input-glass" placeholder="0" />
+            {loading ? (
+                <div className="text-center py-12"><Loader2 className="animate-spin mx-auto" size={40} /></div>
+            ) : requests.length === 0 ? (
+                <div className="text-center py-12 glass-card"><Package size={48} className="mx-auto mb-4 text-gray-400" /><p className="text-gray-500">لا يوجد طلبات</p></div>
+            ) : (
+                <div className="space-y-4">
+                    {requests.map(req => {
+                        const status = statusLabels[req.status] || statusLabels.pending;
+                        return (
+                            <div key={req.id} className="glass-card p-4">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <h3 className="font-bold">{req.item_name}</h3>
+                                            <span className="text-gray-500">x{req.quantity}</span>
+                                            <span className={`badge ${status.color}`}>{status.label}</span>
+                                        </div>
+                                        {req.notes && <p className="text-sm text-gray-500 mb-1">{req.notes}</p>}
+                                        <p className="text-xs text-gray-400">
+                                            {req.requested_by && `طلب: ${req.requested_by} | `}
+                                            {new Date(req.created_at).toLocaleDateString("ar-EG")}
+                                        </p>
+                                    </div>
+                                    {req.status === "pending" && (
+                                        <div className="flex gap-2">
+                                            <button onClick={() => updateStatus(req.id, "approved")} className="p-2 hover:bg-green-50 rounded-lg text-green-500"><Check size={18} /></button>
+                                            <button onClick={() => updateStatus(req.id, "rejected")} className="p-2 hover:bg-red-50 rounded-lg text-red-500"><X size={18} /></button>
+                                        </div>
+                                    )}
+                                    {req.status === "approved" && (
+                                        <button onClick={() => updateStatus(req.id, "ordered")} className="btn-glass text-sm">تم الطلب</button>
+                                    )}
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">تفاصيل إضافية</label>
-                                <textarea className="input-glass" rows={3} placeholder="أي ملاحظات..." />
-                            </div>
-                            <div className="flex gap-3 pt-4">
-                                <button type="submit" className="btn-gradient flex-1">إضافة الطلب</button>
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-glass flex-1">إلغاء</button>
-                            </div>
-                        </form>
-                    </div>
+                        );
+                    })}
                 </div>
             )}
+
+            <AddRequestModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchRequests} />
         </div>
     );
 }
