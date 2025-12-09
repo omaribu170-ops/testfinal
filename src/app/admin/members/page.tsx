@@ -191,7 +191,7 @@ function MemberProfileModal({
                         <h2 className="text-2xl font-bold">{member.name}</h2>
                         <p className="text-gray-500">كود العضوية: {member.code}</p>
                         {member.nickname && (
-                            <p className="text-sm text-brand-start mt-1">"{member.nickname}"</p>
+                            <p className="text-sm text-brand-start mt-1">&quot;{member.nickname}&quot;</p>
                         )}
                     </div>
                 </div>
