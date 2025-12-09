@@ -1,6 +1,6 @@
 /* =====================================================
    صفحة التسجيل - Register Page
-   مربوط بـ Supabase Auth
+   يستخدم جدول users مباشرة (بدون Supabase Auth)
 ===================================================== */
 
 "use client";
@@ -23,6 +23,7 @@ export default function RegisterPage() {
         referralCode: ""
     });
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,6 +37,11 @@ export default function RegisterPage() {
 
         if (formData.password.length < 6) {
             setError("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+            return;
+        }
+
+        if (formData.phone.length < 10) {
+            setError("رقم الهاتف غير صحيح");
             return;
         }
 
@@ -56,64 +62,58 @@ export default function RegisterPage() {
                 return;
             }
 
-            // إنشاء حساب في Supabase Auth
-            const authEmail = `${formData.phone}@thehub.local`;
+            // إنشاء كود عضوية
+            const memberCode = "MBR" + Date.now().toString().slice(-6);
 
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: authEmail,
-                password: formData.password
-            });
+            // إنشاء سجل في جدول users
+            const { error: insertError } = await supabase
+                .from("users")
+                .insert({
+                    name: formData.name,
+                    phone: formData.phone,
+                    email: formData.email || `${formData.phone}@thehub.local`,
+                    password_hash: formData.password, // في الإنتاج يجب تشفيرها
+                    role: "user",
+                    wallet_balance: 0,
+                    affiliate_code: memberCode,
+                    referred_by: null,
+                    is_verified: true,
+                    is_active: true
+                });
 
-            if (authError) {
-                setError(authError.message);
+            if (insertError) {
+                console.error(insertError);
+                setError("حدث خطأ: " + insertError.message);
                 return;
             }
 
-            // إنشاء سجل في جدول users
-            if (authData.user) {
-                const code = "MBR" + Date.now().toString().slice(-6);
-
-                const { error: profileError } = await supabase
-                    .from("users")
-                    .insert({
-                        auth_id: authData.user.id,
-                        name: formData.name,
-                        phone: formData.phone,
-                        email: formData.email || null,
-                        code: code,
-                        role: "member",
-                        wallet_balance: 0,
-                        total_hours: 0,
-                        total_spent: 0,
-                        game_nights_attended: 0,
-                        game_nights_won: 0,
-                        referred_by: formData.referralCode || null
-                    });
-
-                if (profileError) {
-                    setError(profileError.message);
-                    return;
-                }
-
-                // تحديث إحصائيات المسوق إذا وجد كود إحالة
-                if (formData.referralCode) {
-                    await supabase.rpc("increment_affiliate_referral", {
-                        affiliate_code: formData.referralCode
-                    });
-                }
-            }
-
             // نجاح!
-            alert("تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول");
-            router.push("/login");
+            setSuccess(true);
+            setTimeout(() => {
+                router.push("/login");
+            }, 2000);
 
         } catch (err) {
             console.error(err);
-            setError("حدث خطأ غير متوقع");
+            setError("حدث خطأ في الاتصال بقاعدة البيانات");
         } finally {
             setLoading(false);
         }
     };
+
+    if (success) {
+        return (
+            <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
+                <div className="glass-card p-8 text-center max-w-md">
+                    <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                        <span className="text-4xl">✅</span>
+                    </div>
+                    <h2 className="text-2xl font-bold mb-2">تم إنشاء الحساب بنجاح!</h2>
+                    <p className="text-gray-500">جارِ التوجيه لصفحة تسجيل الدخول...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
@@ -210,18 +210,6 @@ export default function RegisterPage() {
                                 required
                             />
                         </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-2">كود الإحالة (اختياري)</label>
-                        <input
-                            type="text"
-                            className="input-glass"
-                            placeholder="HUB123ABC"
-                            value={formData.referralCode}
-                            onChange={e => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
-                            dir="ltr"
-                        />
                     </div>
 
                     <button

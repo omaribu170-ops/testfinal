@@ -1,6 +1,6 @@
 /* =====================================================
    صفحة تسجيل الدخول - Login Page
-   مربوط بـ Supabase Auth
+   يستخدم جدول users مباشرة (بدون Supabase Auth)
 ===================================================== */
 
 "use client";
@@ -10,6 +10,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Phone, Lock, Loader2, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+interface UserData {
+    id: string;
+    name: string;
+    phone: string;
+    email: string | null;
+    password_hash: string | null;
+    role: string;
+    wallet_balance: number;
+}
 
 export default function LoginPage() {
     const router = useRouter();
@@ -26,31 +36,38 @@ export default function LoginPage() {
         try {
             const supabase = createClient();
 
-            // استخدام البريد الإلكتروني الوهمي المبني على رقم الهاتف
-            const email = `${phone}@thehub.local`;
-
-            const { error: authError } = await supabase.auth.signInWithPassword({
-                email,
-                password
-            });
-
-            if (authError) {
-                if (authError.message.includes("Invalid login credentials")) {
-                    setError("رقم الهاتف أو كلمة المرور غير صحيحة");
-                } else {
-                    setError(authError.message);
-                }
-                return;
-            }
-
-            // جلب بيانات المستخدم لمعرفة دوره
-            const { data: userData } = await supabase
+            // البحث عن المستخدم برقم الهاتف
+            const { data, error: userError } = await supabase
                 .from("users")
-                .select("role")
+                .select("*")
                 .eq("phone", phone)
                 .single();
 
-            if (userData?.role === "admin") {
+            const user = data as UserData | null;
+
+            if (userError || !user) {
+                setError("رقم الهاتف غير مسجل");
+                return;
+            }
+
+            // التحقق من كلمة المرور (مقارنة بسيطة)
+            // في الإنتاج يجب استخدام bcrypt أو مشابه
+            if (user.password_hash !== password) {
+                setError("كلمة المرور غير صحيحة");
+                return;
+            }
+
+            // حفظ بيانات المستخدم في localStorage
+            localStorage.setItem("user", JSON.stringify({
+                id: user.id,
+                name: user.name,
+                phone: user.phone,
+                role: user.role,
+                wallet_balance: user.wallet_balance
+            }));
+
+            // التوجيه حسب الدور
+            if (user.role === "super_admin" || user.role === "admin") {
                 router.push("/admin");
             } else {
                 router.push("/");
@@ -58,7 +75,7 @@ export default function LoginPage() {
 
         } catch (err) {
             console.error(err);
-            setError("حدث خطأ غير متوقع");
+            setError("حدث خطأ في الاتصال بقاعدة البيانات");
         } finally {
             setLoading(false);
         }
@@ -146,6 +163,13 @@ export default function LoginPage() {
                     <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-600">
                         دخول كـ Admin (للتجريب)
                     </Link>
+                </div>
+
+                {/* بيانات تجريبية */}
+                <div className="mt-4 p-4 bg-blue-50 rounded-xl text-sm text-center">
+                    <p className="font-medium text-blue-700 mb-2">بيانات تجريبية:</p>
+                    <p className="text-blue-600">هاتف: 01000000000</p>
+                    <p className="text-blue-600">كلمة المرور: admin123</p>
                 </div>
             </div>
         </div>

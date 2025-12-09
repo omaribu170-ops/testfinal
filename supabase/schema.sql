@@ -595,8 +595,8 @@ CREATE TRIGGER generate_user_affiliate_code
 -- =====================================================
 
 -- إضافة Super Admin
-INSERT INTO users (name, email, phone, role, is_verified, nickname)
-VALUES ('المدير العام', 'admin@thehub.com', '01000000000', 'super_admin', true, 'الأدمن');
+INSERT INTO users (name, email, phone, password_hash, role, is_verified, nickname)
+VALUES ('المدير العام', 'admin@thehub.com', '01000000000', 'admin123', 'super_admin', true, 'الأدمن');
 
 -- إضافة بعض الترابيزات
 INSERT INTO tables (name, table_number, price_per_hour_per_person, capacity_min, capacity_max)
