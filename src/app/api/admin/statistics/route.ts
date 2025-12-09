@@ -43,7 +43,9 @@ export async function GET(request: NextRequest) {
             .eq("is_paid", true)
             .gte("start_time", startDate.toISOString());
 
-        const totalRevenue = sessions?.reduce((sum, s) => sum + (s.total_price || 0), 0) || 0;
+        const totalRevenue = (sessions as { total_price: number | null }[] | null)?.reduce(
+            (sum, s) => sum + (s.total_price || 0), 0
+        ) || 0;
 
         // جلب عدد الأعضاء
         const { count: totalMembers } = await supabase
