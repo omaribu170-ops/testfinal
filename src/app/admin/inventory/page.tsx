@@ -1,134 +1,317 @@
 /* =====================================================
-   المخزن - Inventory Management
+   إدارة المخزن - Inventory Management
+   مربوط بـ Supabase
 ===================================================== */
 
 "use client";
 
-import { useState } from "react";
-import { Boxes, Plus, Edit2, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Package, Edit2, Trash2, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
-const mockProducts = [
-    { id: "1", name: "قهوة", name_ar: "قهوة", type: "drink", price: 25, cost_price: 10, stock_quantity: 85, min_stock_alert: 20, is_for_sale: true },
-    { id: "2", name: "شاي", name_ar: "شاي", type: "drink", price: 15, cost_price: 5, stock_quantity: 120, min_stock_alert: 30, is_for_sale: true },
-    { id: "3", name: "مياه", name_ar: "مياه", type: "drink", price: 10, cost_price: 3, stock_quantity: 200, min_stock_alert: 50, is_for_sale: true },
-    { id: "4", name: "ساندوتش", name_ar: "ساندوتش", type: "food", price: 35, cost_price: 15, stock_quantity: 25, min_stock_alert: 10, is_for_sale: true },
-    { id: "5", name: "كيكة", name_ar: "كيكة", type: "food", price: 30, cost_price: 12, stock_quantity: 8, min_stock_alert: 10, is_for_sale: true },
-    { id: "6", name: "مناديل", name_ar: "مناديل", type: "supply", price: 0, cost_price: 15, stock_quantity: 5, min_stock_alert: 10, is_for_sale: false },
+interface Product {
+    id: string;
+    name: string;
+    category: string;
+    price: number;
+    cost: number;
+    stock: number;
+    is_active: boolean;
+    created_at: string;
+}
+
+const productCategories = [
+    { value: "drinks", label: "مشروبات" },
+    { value: "snacks", label: "سناكس" },
+    { value: "food", label: "طعام" },
+    { value: "other", label: "أخرى" }
 ];
 
-const typeLabels: Record<string, string> = { food: "طعام", drink: "مشروبات", supply: "مستلزمات", equipment: "معدات" };
+// =====================================================
+// Modal إضافة/تعديل منتج
+// =====================================================
+function ProductModal({
+    isOpen,
+    onClose,
+    onSuccess,
+    editProduct
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    onSuccess: () => void;
+    editProduct: Product | null;
+}) {
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        name: "",
+        category: "drinks",
+        price: 0,
+        cost: 0,
+        stock: 0,
+        is_active: true
+    });
 
+    useEffect(() => {
+        if (editProduct) {
+            setFormData({
+                name: editProduct.name,
+                category: editProduct.category,
+                price: editProduct.price,
+                cost: editProduct.cost,
+                stock: editProduct.stock,
+                is_active: editProduct.is_active
+            });
+        } else {
+            setFormData({ name: "", category: "drinks", price: 0, cost: 0, stock: 0, is_active: true });
+        }
+    }, [editProduct]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+            const supabase = createClient();
+
+            if (editProduct) {
+                const { error } = await supabase
+                    .from("products")
+                    .update(formData)
+                    .eq("id", editProduct.id);
+
+                if (!error) {
+                    alert("تم تعديل المنتج!");
+                    onSuccess();
+                    onClose();
+                } else {
+                    alert("خطأ: " + error.message);
+                }
+            } else {
+                const { error } = await supabase
+                    .from("products")
+                    .insert(formData);
+
+                if (!error) {
+                    alert("تم إضافة المنتج!");
+                    onSuccess();
+                    onClose();
+                } else {
+                    alert("خطأ: " + error.message);
+                }
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h2 className="text-xl font-bold mb-6">
+                    {editProduct ? "تعديل المنتج" : "إضافة منتج جديد"}
+                </h2>
+
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">اسم المنتج *</label>
+                        <input
+                            type="text"
+                            className="input-glass"
+                            value={formData.name}
+                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-2">التصنيف</label>
+                        <select
+                            className="input-glass"
+                            value={formData.category}
+                            onChange={e => setFormData({ ...formData, category: e.target.value })}
+                        >
+                            {productCategories.map(cat => (
+                                <option key={cat.value} value={cat.value}>{cat.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">سعر البيع (ج.م)</label>
+                            <input
+                                type="number"
+                                className="input-glass"
+                                value={formData.price}
+                                onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
+                                min={0}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-2">التكلفة (ج.م)</label>
+                            <input
+                                type="number"
+                                className="input-glass"
+                                value={formData.cost}
+                                onChange={e => setFormData({ ...formData, cost: Number(e.target.value) })}
+                                min={0}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-2">الكمية بالمخزن</label>
+                        <input
+                            type="number"
+                            className="input-glass"
+                            value={formData.stock}
+                            onChange={e => setFormData({ ...formData, stock: Number(e.target.value) })}
+                            min={0}
+                        />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <button type="submit" className="btn-gradient flex-1" disabled={loading}>
+                            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : "حفظ"}
+                        </button>
+                        <button type="button" onClick={onClose} className="btn-glass flex-1">
+                            إلغاء
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// =====================================================
+// الصفحة الرئيسية
+// =====================================================
 export default function InventoryPage() {
+    const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [filter, setFilter] = useState("all");
+    const [editProduct, setEditProduct] = useState<Product | null>(null);
 
-    const filteredProducts = filter === "all" ? mockProducts : mockProducts.filter(p => p.type === filter);
-    const lowStockItems = mockProducts.filter(p => p.stock_quantity <= p.min_stock_alert);
+    const fetchProducts = async () => {
+        setLoading(true);
+        try {
+            const supabase = createClient();
+            const { data } = await supabase
+                .from("products")
+                .select("*")
+                .order("name");
+
+            setProducts(data as Product[] || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchProducts();
+    }, []);
+
+    const deleteProduct = async (id: string) => {
+        if (!confirm("هل أنت متأكد؟")) return;
+
+        const supabase = createClient();
+        const { error } = await supabase.from("products").delete().eq("id", id);
+
+        if (!error) {
+            alert("تم الحذف");
+            fetchProducts();
+        }
+    };
+
+    const getCategoryLabel = (val: string) => productCategories.find(c => c.value === val)?.label || val;
 
     return (
         <div className="animate-fadeIn">
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-3xl font-bold flex items-center gap-3">
-                        <Boxes className="text-brand-start" />
+                        <Package className="text-brand-start" />
                         المخزن
                     </h1>
-                    <p className="text-gray-500 mt-1">إجمالي المنتجات: {mockProducts.length}</p>
+                    <p className="text-gray-500 mt-1">
+                        {products.length} منتج
+                    </p>
                 </div>
-                <button onClick={() => setIsModalOpen(true)} className="btn-gradient flex items-center gap-2">
+                <button
+                    onClick={() => { setEditProduct(null); setIsModalOpen(true); }}
+                    className="btn-gradient flex items-center gap-2"
+                >
                     <Plus size={20} />
                     إضافة منتج
                 </button>
             </div>
 
-            {/* تنبيه المخزون المنخفض */}
-            {lowStockItems.length > 0 && (
-                <div className="glass-card p-4 mb-6 border-yellow-300 bg-yellow-50/50">
-                    <div className="flex items-center gap-2 text-yellow-700">
-                        <AlertTriangle size={20} />
-                        <span className="font-medium">تنبيه: {lowStockItems.length} منتجات قاربت على النفاد!</span>
-                        <span className="text-sm">({lowStockItems.map(p => p.name_ar).join("، ")})</span>
-                    </div>
+            {loading ? (
+                <div className="text-center py-12">
+                    <Loader2 className="animate-spin mx-auto" size={40} />
                 </div>
-            )}
-
-            {/* فلتر النوع */}
-            <div className="flex gap-2 mb-6">
-                {["all", "drink", "food", "supply", "equipment"].map(type => (
-                    <button key={type} onClick={() => setFilter(type)} className={`px-4 py-2 rounded-xl transition-all ${filter === type ? "bg-brand-gradient text-white" : "glass-card"}`}>
-                        {type === "all" ? "الكل" : typeLabels[type]}
-                    </button>
-                ))}
-            </div>
-
-            <div className="glass-card overflow-hidden">
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th>المنتج</th>
-                            <th>النوع</th>
-                            <th>سعر البيع</th>
-                            <th>سعر التكلفة</th>
-                            <th>الكمية</th>
-                            <th>الحد الأدنى</th>
-                            <th>للبيع</th>
-                            <th>الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredProducts.map((product) => {
-                            const isLow = product.stock_quantity <= product.min_stock_alert;
-                            return (
-                                <tr key={product.id} className={isLow ? "bg-yellow-50" : ""}>
-                                    <td className="font-medium">{product.name_ar}</td>
-                                    <td><span className="badge badge-info">{typeLabels[product.type]}</span></td>
-                                    <td>{product.price > 0 ? `${product.price} ج.م` : "-"}</td>
-                                    <td>{product.cost_price} ج.م</td>
-                                    <td className={isLow ? "text-red-500 font-bold" : ""}>{product.stock_quantity}</td>
-                                    <td>{product.min_stock_alert}</td>
-                                    <td>{product.is_for_sale ? <span className="badge badge-success">نعم</span> : <span className="badge badge-error">لا</span>}</td>
-                                    <td><button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"><Edit2 size={18} /></button></td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Modal إضافة منتج */}
-            {isModalOpen && (
-                <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-xl font-bold mb-6">إضافة منتج جديد</h2>
-                        <form className="space-y-4">
-                            <div><label className="block text-sm font-medium mb-2">اسم المنتج</label><input type="text" className="input-glass" /></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium mb-2">النوع</label>
-                                    <select className="input-glass">
-                                        <option value="drink">مشروبات</option>
-                                        <option value="food">طعام</option>
-                                        <option value="supply">مستلزمات</option>
-                                        <option value="equipment">معدات</option>
-                                    </select>
+            ) : products.length === 0 ? (
+                <div className="text-center py-12 glass-card">
+                    <Package size={48} className="mx-auto mb-4 text-gray-400" />
+                    <p className="text-gray-500">لا يوجد منتجات</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {products.map(product => (
+                        <div key={product.id} className="glass-card p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold">{product.name}</h3>
+                                <span className="badge bg-gray-100">{getCategoryLabel(product.category)}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-sm mb-4">
+                                <div className="text-center">
+                                    <p className="text-gray-500">السعر</p>
+                                    <p className="font-bold text-green-600">{product.price} ج.م</p>
                                 </div>
-                                <div><label className="block text-sm font-medium mb-2">الكمية</label><input type="number" className="input-glass" /></div>
+                                <div className="text-center">
+                                    <p className="text-gray-500">التكلفة</p>
+                                    <p className="font-bold">{product.cost} ج.م</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-gray-500">الكمية</p>
+                                    <p className={`font-bold ${product.stock < 5 ? "text-red-500" : ""}`}>
+                                        {product.stock}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium mb-2">سعر البيع</label><input type="number" className="input-glass" /></div>
-                                <div><label className="block text-sm font-medium mb-2">سعر التكلفة</label><input type="number" className="input-glass" /></div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => { setEditProduct(product); setIsModalOpen(true); }}
+                                    className="btn-glass flex-1 flex items-center justify-center gap-2"
+                                >
+                                    <Edit2 size={14} />
+                                    تعديل
+                                </button>
+                                <button
+                                    onClick={() => deleteProduct(product.id)}
+                                    className="p-2 hover:bg-red-50 rounded-xl text-red-500"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium mb-2">الحد الأدنى للتنبيه</label><input type="number" className="input-glass" /></div>
-                                <div className="flex items-center gap-2 pt-6"><input type="checkbox" id="forSale" /><label htmlFor="forSale">متاح للبيع</label></div>
-                            </div>
-                            <div className="flex gap-3 pt-4">
-                                <button type="submit" className="btn-gradient flex-1">إضافة المنتج</button>
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-glass flex-1">إلغاء</button>
-                            </div>
-                        </form>
-                    </div>
+                        </div>
+                    ))}
                 </div>
             )}
+
+            <ProductModal
+                isOpen={isModalOpen}
+                onClose={() => { setIsModalOpen(false); setEditProduct(null); }}
+                onSuccess={fetchProducts}
+                editProduct={editProduct}
+            />
         </div>
     );
 }

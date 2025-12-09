@@ -1,27 +1,14 @@
 /* =====================================================
    Admin Dashboard - الصفحة الرئيسية للوحة التحكم
+   مربوط بـ Supabase
 ===================================================== */
 
 "use client";
 
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Users, Clock, Wallet, Plus, Play, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, Users, Clock, Wallet, Plus, Play, ChevronLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
-
-// إحصائيات تجريبية
-const mockStats = {
-    activeSessions: 5,
-    newMembers: 12,
-    occupiedTables: 7,
-    todayRevenue: 2450,
-};
-
-// جلسات نشطة تجريبية
-const mockActiveSessions = [
-    { id: "1", table: "VIP 1", members: ["أحمد", "محمد"], startTime: new Date(Date.now() - 3600000 * 2).toISOString() },
-    { id: "2", table: "عادية 3", members: ["سارة"], startTime: new Date(Date.now() - 3600000).toISOString() },
-    { id: "3", table: "كبيرة 1", members: ["خالد", "نورا", "علي"], startTime: new Date(Date.now() - 1800000).toISOString() },
-];
+import { createClient } from "@/lib/supabase/client";
 
 // Timer Component
 function SessionTimer({ startTime }: { startTime: string }) {
@@ -61,6 +48,91 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 }
 
 export default function AdminDashboardPage() {
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        activeSessions: 0,
+        totalMembers: 0,
+        occupiedTables: 0,
+        totalTables: 0,
+        todayRevenue: 0
+    });
+    const [activeSessions, setActiveSessions] = useState<{
+        id: string;
+        table_name: string;
+        members: string[];
+        start_time: string;
+    }[]>([]);
+
+    // جلب البيانات
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const supabase = createClient();
+
+            // الجلسات النشطة
+            const { data: sessions } = await supabase
+                .from("sessions")
+                .select("id, start_time, members, tables(name)")
+                .is("end_time", null);
+
+            // عدد الأعضاء
+            const { count: membersCount } = await supabase
+                .from("users")
+                .select("*", { count: "exact", head: true })
+                .eq("role", "member");
+
+            // الترابيزات
+            const { data: tables } = await supabase
+                .from("tables")
+                .select("status");
+
+            // إيرادات اليوم
+            const today = new Date().toISOString().split("T")[0];
+            const { data: todaySessions } = await supabase
+                .from("sessions")
+                .select("total_price")
+                .eq("is_paid", true)
+                .gte("end_time", today);
+
+            const todayRevenue = (todaySessions as { total_price: number | null }[] || [])
+                .reduce((sum, s) => sum + (s.total_price || 0), 0);
+
+            const occupiedCount = (tables || []).filter(t => t.status === "occupied").length;
+
+            setStats({
+                activeSessions: sessions?.length || 0,
+                totalMembers: membersCount || 0,
+                occupiedTables: occupiedCount,
+                totalTables: tables?.length || 0,
+                todayRevenue
+            });
+
+            setActiveSessions((sessions || []).map(s => ({
+                id: s.id,
+                table_name: (s.tables as { name: string } | null)?.name || "غير معروف",
+                members: s.members || [],
+                start_time: s.start_time
+            })));
+
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-[60vh]">
+                <Loader2 className="animate-spin" size={48} />
+            </div>
+        );
+    }
+
     return (
         <div className="animate-fadeIn">
             <div className="flex items-center justify-between mb-6">
@@ -79,10 +151,10 @@ export default function AdminDashboardPage() {
 
             {/* الإحصائيات السريعة */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <StatCard icon={Clock} label="الجلسات النشطة" value={mockStats.activeSessions} color="bg-blue-500" />
-                <StatCard icon={Users} label="أعضاء جدد اليوم" value={mockStats.newMembers} color="bg-green-500" />
-                <StatCard icon={LayoutDashboard} label="الترابيزات المشغولة" value={`${mockStats.occupiedTables}/10`} color="bg-purple-500" />
-                <StatCard icon={Wallet} label="إيرادات اليوم" value={`${mockStats.todayRevenue} ج.م`} color="bg-orange-500" />
+                <StatCard icon={Clock} label="الجلسات النشطة" value={stats.activeSessions} color="bg-blue-500" />
+                <StatCard icon={Users} label="إجمالي الأعضاء" value={stats.totalMembers} color="bg-green-500" />
+                <StatCard icon={LayoutDashboard} label="الترابيزات المشغولة" value={`${stats.occupiedTables}/${stats.totalTables}`} color="bg-purple-500" />
+                <StatCard icon={Wallet} label="إيرادات اليوم" value={`${stats.todayRevenue} ج.م`} color="bg-orange-500" />
             </div>
 
             {/* الجلسات النشطة */}
@@ -93,24 +165,35 @@ export default function AdminDashboardPage() {
                         عرض الكل <ChevronLeft size={16} />
                     </Link>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {mockActiveSessions.map((session) => (
-                        <div key={session.id} className="glass-card p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="font-bold">{session.table}</span>
-                                <span className="badge badge-info">
-                                    <Play size={12} className="ml-1" />
-                                    نشطة
-                                </span>
+                {activeSessions.length === 0 ? (
+                    <div className="glass-card p-8 text-center">
+                        <Clock size={48} className="mx-auto mb-4 text-gray-400" />
+                        <p className="text-gray-500">لا يوجد جلسات نشطة حالياً</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {activeSessions.slice(0, 6).map((session) => (
+                            <div key={session.id} className="glass-card p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="font-bold">{session.table_name}</span>
+                                    <span className="badge badge-info">
+                                        <Play size={12} className="ml-1" />
+                                        نشطة
+                                    </span>
+                                </div>
+                                {session.members.length > 0 && (
+                                    <p className="text-sm text-gray-500 mb-3">{session.members.join("، ")}</p>
+                                )}
+                                <div className="flex items-center justify-between">
+                                    <SessionTimer startTime={session.start_time} />
+                                    <Link href="/admin/sessions" className="text-sm text-red-500 hover:underline">
+                                        إنهاء
+                                    </Link>
+                                </div>
                             </div>
-                            <p className="text-sm text-gray-500 mb-3">{session.members.join("، ")}</p>
-                            <div className="flex items-center justify-between">
-                                <SessionTimer startTime={session.startTime} />
-                                <button className="text-sm text-red-500 hover:underline">إنهاء</button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </section>
 
             {/* إجراءات سريعة */}

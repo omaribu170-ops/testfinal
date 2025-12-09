@@ -1,220 +1,298 @@
 /* =====================================================
    الملاحظات - Notes App
-   مثل تطبيق Notes من Apple
+   مربوط بـ Supabase
 ===================================================== */
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Plus, FileText, Trash2, Pin, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { ArrowRight, Plus, Search, Pin, Trash2, Folder } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface Note {
     id: string;
+    user_id: string | null;
     title: string;
     content: string;
-    is_pinned: boolean;
     color: string;
+    is_pinned: boolean;
+    created_at: string;
     updated_at: string;
 }
 
-const mockNotes: Note[] = [
-    { id: "1", title: "أفكار للمشروع", content: "1. تصميم الواجهة\n2. قاعدة البيانات\n3. API", is_pinned: true, color: "#FFE066", updated_at: "2024-12-09" },
-    { id: "2", title: "قائمة المهام", content: "- مذاكرة\n- تمارين\n- قراءة", is_pinned: false, color: "#ffffff", updated_at: "2024-12-08" },
-    { id: "3", title: "ملاحظات الاجتماع", content: "تم الاتفاق على الجدول الزمني للمشروع", is_pinned: false, color: "#C3FAE8", updated_at: "2024-12-07" },
+const noteColors = [
+    { value: "yellow", class: "bg-yellow-100" },
+    { value: "green", class: "bg-green-100" },
+    { value: "blue", class: "bg-blue-100" },
+    { value: "pink", class: "bg-pink-100" },
+    { value: "purple", class: "bg-purple-100" },
+    { value: "gray", class: "bg-gray-100" }
 ];
 
-const colors = ["#ffffff", "#FFE066", "#C3FAE8", "#D0BFFF", "#FFC9C9", "#A5D8FF"];
-
 export default function NotesPage() {
-    const [notes, setNotes] = useState(mockNotes);
+    const [notes, setNotes] = useState<Note[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-    const [searchTerm, setSearchTerm] = useState("");
     const [isEditing, setIsEditing] = useState(false);
-
-    // تصفية الملاحظات
-    const filteredNotes = notes.filter(note =>
-        note.title.includes(searchTerm) || note.content.includes(searchTerm)
-    );
-
-    // المثبتة أولاً ثم حسب التاريخ
-    const sortedNotes = [...filteredNotes].sort((a, b) => {
-        if (a.is_pinned && !b.is_pinned) return -1;
-        if (!a.is_pinned && b.is_pinned) return 1;
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    const [formData, setFormData] = useState({
+        title: "",
+        content: "",
+        color: "yellow"
     });
 
-    // إضافة ملاحظة جديدة
-    const addNote = () => {
-        const newNote: Note = {
-            id: Date.now().toString(),
-            title: "ملاحظة جديدة",
-            content: "",
-            is_pinned: false,
-            color: "#ffffff",
-            updated_at: new Date().toISOString().split("T")[0]
-        };
-        setNotes([newNote, ...notes]);
-        setSelectedNote(newNote);
-        setIsEditing(true);
+    // جلب الملاحظات
+    const fetchNotes = async () => {
+        setLoading(true);
+        try {
+            const supabase = createClient();
+            const { data, error } = await supabase
+                .from("notes")
+                .select("*")
+                .order("is_pinned", { ascending: false })
+                .order("updated_at", { ascending: false });
+
+            if (!error) {
+                setNotes(data as Note[] || []);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // حفظ الملاحظة
-    const saveNote = () => {
-        if (selectedNote) {
-            setNotes(notes.map(n => n.id === selectedNote.id ? selectedNote : n));
-            setIsEditing(false);
+    useEffect(() => {
+        fetchNotes();
+    }, []);
+
+    // إضافة ملاحظة
+    const addNote = async () => {
+        if (!formData.title.trim()) {
+            alert("أدخل عنوان الملاحظة");
+            return;
+        }
+
+        try {
+            const supabase = createClient();
+            const { error } = await supabase
+                .from("notes")
+                .insert({
+                    title: formData.title,
+                    content: formData.content,
+                    color: formData.color,
+                    is_pinned: false
+                });
+
+            if (!error) {
+                setFormData({ title: "", content: "", color: "yellow" });
+                setIsEditing(false);
+                fetchNotes();
+            } else {
+                alert("خطأ: " + error.message);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    // تحديث ملاحظة
+    const updateNote = async () => {
+        if (!selectedNote) return;
+
+        try {
+            const supabase = createClient();
+            const { error } = await supabase
+                .from("notes")
+                .update({
+                    title: formData.title,
+                    content: formData.content,
+                    color: formData.color,
+                    updated_at: new Date().toISOString()
+                })
+                .eq("id", selectedNote.id);
+
+            if (!error) {
+                setSelectedNote(null);
+                setFormData({ title: "", content: "", color: "yellow" });
+                fetchNotes();
+            }
+        } catch (err) {
+            console.error(err);
         }
     };
 
     // حذف ملاحظة
-    const deleteNote = (id: string) => {
-        setNotes(notes.filter(n => n.id !== id));
-        if (selectedNote?.id === id) {
-            setSelectedNote(null);
+    const deleteNote = async (id: string) => {
+        if (!confirm("هل أنت متأكد من الحذف؟")) return;
+
+        try {
+            const supabase = createClient();
+            const { error } = await supabase
+                .from("notes")
+                .delete()
+                .eq("id", id);
+
+            if (!error) {
+                fetchNotes();
+                if (selectedNote?.id === id) {
+                    setSelectedNote(null);
+                }
+            }
+        } catch (err) {
+            console.error(err);
         }
     };
 
-    // تبديل التثبيت
-    const togglePin = (id: string) => {
-        setNotes(notes.map(n => n.id === id ? { ...n, is_pinned: !n.is_pinned } : n));
-    };
+    // تثبيت/إلغاء تثبيت
+    const togglePin = async (note: Note) => {
+        try {
+            const supabase = createClient();
+            await supabase
+                .from("notes")
+                .update({ is_pinned: !note.is_pinned })
+                .eq("id", note.id);
 
-    // تغيير اللون
-    const changeColor = (color: string) => {
-        if (selectedNote) {
-            setSelectedNote({ ...selectedNote, color });
-            setNotes(notes.map(n => n.id === selectedNote.id ? { ...n, color } : n));
+            fetchNotes();
+        } catch (err) {
+            console.error(err);
         }
     };
+
+    // فتح ملاحظة للتعديل
+    const openNote = (note: Note) => {
+        setSelectedNote(note);
+        setFormData({
+            title: note.title,
+            content: note.content,
+            color: note.color
+        });
+    };
+
+    const getColorClass = (color: string) => noteColors.find(c => c.value === color)?.class || "bg-yellow-100";
 
     return (
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen bg-[var(--background)] pb-24">
             {/* الهيدر */}
-            <header className="flex items-center justify-between p-4">
-                <Link href="/tools" className="p-2 rounded-full glass">
-                    <ArrowRight size={24} />
-                </Link>
-                <h1 className="text-xl font-bold">الملاحظات</h1>
-                <button onClick={addNote} className="p-2 rounded-full bg-brand-gradient text-white">
-                    <Plus size={24} />
-                </button>
+            <header className="glass border-b border-white/20 p-4 sticky top-0 z-10">
+                <div className="max-w-lg mx-auto flex items-center gap-4">
+                    <Link href="/tools" className="p-2 hover:bg-white/20 rounded-xl">
+                        <ArrowRight size={24} />
+                    </Link>
+                    <h1 className="text-xl font-bold">الملاحظات</h1>
+                </div>
             </header>
 
-            {/* البحث */}
-            <div className="px-4 mb-4">
-                <div className="relative">
-                    <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                    <input
-                        type="text"
-                        className="input-glass pr-12"
-                        placeholder="بحث في الملاحظات..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-            </div>
+            <div className="max-w-lg mx-auto px-4 py-6">
+                {/* زر إضافة */}
+                {!isEditing && !selectedNote && (
+                    <button
+                        onClick={() => setIsEditing(true)}
+                        className="w-full glass-card p-4 flex items-center gap-3 hover:bg-white/80 transition-colors mb-6"
+                    >
+                        <Plus size={24} className="text-gray-400" />
+                        <span className="text-gray-500">ملاحظة جديدة...</span>
+                    </button>
+                )}
 
-            {/* قائمة الملاحظات */}
-            <div className="flex-1 px-4 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-3">
-                    {sortedNotes.map(note => (
-                        <div
-                            key={note.id}
-                            onClick={() => {
-                                setSelectedNote(note);
-                                setIsEditing(false);
-                            }}
-                            className="p-4 rounded-xl cursor-pointer hover:scale-[1.02] transition-transform relative"
-                            style={{ backgroundColor: note.color }}
-                        >
-                            {note.is_pinned && (
-                                <Pin size={14} className="absolute top-2 left-2 text-gray-500" />
-                            )}
-                            <h3 className="font-bold mb-1 line-clamp-1">{note.title}</h3>
-                            <p className="text-sm text-gray-600 line-clamp-3">{note.content}</p>
-                            <p className="text-xs text-gray-400 mt-2">{note.updated_at}</p>
+                {/* نموذج الإضافة/التعديل */}
+                {(isEditing || selectedNote) && (
+                    <div className={`glass-card p-4 mb-6 ${getColorClass(formData.color)}`}>
+                        <input
+                            type="text"
+                            className="w-full bg-transparent text-lg font-bold mb-3 outline-none placeholder-gray-500"
+                            placeholder="العنوان"
+                            value={formData.title}
+                            onChange={e => setFormData({ ...formData, title: e.target.value })}
+                        />
+                        <textarea
+                            className="w-full bg-transparent min-h-[150px] outline-none resize-none placeholder-gray-500"
+                            placeholder="اكتب ملاحظتك هنا..."
+                            value={formData.content}
+                            onChange={e => setFormData({ ...formData, content: e.target.value })}
+                        />
+
+                        {/* ألوان */}
+                        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-black/10">
+                            {noteColors.map(color => (
+                                <button
+                                    key={color.value}
+                                    onClick={() => setFormData({ ...formData, color: color.value })}
+                                    className={`w-8 h-8 rounded-full ${color.class} ${formData.color === color.value ? "ring-2 ring-black" : ""}`}
+                                />
+                            ))}
                         </div>
-                    ))}
-                </div>
 
-                {sortedNotes.length === 0 && (
+                        {/* أزرار */}
+                        <div className="flex gap-2 mt-4">
+                            <button
+                                onClick={selectedNote ? updateNote : addNote}
+                                className="btn-gradient flex-1"
+                            >
+                                {selectedNote ? "حفظ التعديلات" : "إضافة"}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setIsEditing(false);
+                                    setSelectedNote(null);
+                                    setFormData({ title: "", content: "", color: "yellow" });
+                                }}
+                                className="btn-glass"
+                            >
+                                إلغاء
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* قائمة الملاحظات */}
+                {loading ? (
                     <div className="text-center py-12">
-                        <Folder size={48} className="mx-auto text-gray-300 mb-4" />
-                        <p className="text-gray-500">لا توجد ملاحظات</p>
+                        <Loader2 className="animate-spin mx-auto" size={40} />
+                    </div>
+                ) : notes.length === 0 ? (
+                    <div className="text-center py-12">
+                        <FileText size={48} className="mx-auto mb-4 text-gray-400" />
+                        <p className="text-gray-500">لا يوجد ملاحظات</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                        {notes.map(note => (
+                            <div
+                                key={note.id}
+                                className={`relative p-4 rounded-2xl cursor-pointer ${getColorClass(note.color)} hover:scale-[1.02] transition-transform`}
+                                onClick={() => openNote(note)}
+                            >
+                                {note.is_pinned && (
+                                    <Pin size={14} className="absolute top-2 left-2 text-gray-600" />
+                                )}
+                                <h3 className="font-bold mb-2 line-clamp-2">{note.title}</h3>
+                                <p className="text-sm text-gray-600 line-clamp-3">{note.content}</p>
+
+                                <div className="flex justify-between items-center mt-3 pt-2 border-t border-black/10">
+                                    <span className="text-xs text-gray-500">
+                                        {new Date(note.updated_at).toLocaleDateString("ar-EG")}
+                                    </span>
+                                    <div className="flex gap-1">
+                                        <button
+                                            onClick={e => { e.stopPropagation(); togglePin(note); }}
+                                            className={`p-1.5 rounded-lg ${note.is_pinned ? "bg-black/10" : "hover:bg-black/10"}`}
+                                        >
+                                            <Pin size={14} />
+                                        </button>
+                                        <button
+                                            onClick={e => { e.stopPropagation(); deleteNote(note.id); }}
+                                            className="p-1.5 rounded-lg hover:bg-red-200 text-red-500"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
-
-            {/* Modal عرض/تعديل الملاحظة */}
-            {selectedNote && (
-                <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setSelectedNote(null)}>
-                    <div
-                        className="absolute inset-4 md:inset-12 rounded-2xl overflow-hidden flex flex-col"
-                        style={{ backgroundColor: selectedNote.color }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {/* شريط الأدوات */}
-                        <div className="flex items-center justify-between p-4 border-b border-black/10">
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => togglePin(selectedNote.id)}
-                                    className={`p-2 rounded-lg ${selectedNote.is_pinned ? "bg-yellow-200" : "hover:bg-black/10"}`}
-                                >
-                                    <Pin size={20} />
-                                </button>
-                                <button
-                                    onClick={() => deleteNote(selectedNote.id)}
-                                    className="p-2 rounded-lg hover:bg-red-100 text-red-500"
-                                >
-                                    <Trash2 size={20} />
-                                </button>
-                            </div>
-                            <div className="flex gap-1">
-                                {colors.map(color => (
-                                    <button
-                                        key={color}
-                                        onClick={() => changeColor(color)}
-                                        className={`w-6 h-6 rounded-full border-2 ${selectedNote.color === color ? "border-black" : "border-transparent"}`}
-                                        style={{ backgroundColor: color }}
-                                    />
-                                ))}
-                            </div>
-                            {isEditing ? (
-                                <button onClick={saveNote} className="btn-gradient text-sm">حفظ</button>
-                            ) : (
-                                <button onClick={() => setIsEditing(true)} className="btn-glass text-sm">تعديل</button>
-                            )}
-                        </div>
-
-                        {/* المحتوى */}
-                        <div className="flex-1 p-4 overflow-y-auto">
-                            {isEditing ? (
-                                <>
-                                    <input
-                                        type="text"
-                                        value={selectedNote.title}
-                                        onChange={(e) => setSelectedNote({ ...selectedNote, title: e.target.value })}
-                                        className="w-full text-2xl font-bold bg-transparent border-none outline-none mb-4"
-                                        placeholder="العنوان"
-                                    />
-                                    <textarea
-                                        value={selectedNote.content}
-                                        onChange={(e) => setSelectedNote({ ...selectedNote, content: e.target.value })}
-                                        className="w-full h-full bg-transparent border-none outline-none resize-none"
-                                        placeholder="اكتب ملاحظتك هنا..."
-                                    />
-                                </>
-                            ) : (
-                                <>
-                                    <h2 className="text-2xl font-bold mb-4">{selectedNote.title}</h2>
-                                    <p className="whitespace-pre-wrap">{selectedNote.content}</p>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
