@@ -6,7 +6,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BarChart2, Users, Clock, Wallet, TrendingUp, Loader2, Calendar } from "lucide-react";
+import { BarChart2, Users, Clock, Wallet, TrendingUp, Loader2, Calendar, Download } from "lucide-react";
+import { exportFinancialReport } from "@/lib/pdfExport";
 import { createClient } from "@/lib/supabase/client";
 
 interface Stats {
@@ -77,15 +78,16 @@ export default function StatisticsPage() {
 
             // متوسط مدة الجلسة
             let avgDuration = 0;
-            if (sessions && sessions.length > 0) {
-                const totalMinutes = sessions.reduce((sum, s) => {
+            const typedSessions = sessions as { total_price: number | null; start_time: string; end_time: string }[] | null;
+            if (typedSessions && typedSessions.length > 0) {
+                const totalMinutes = typedSessions.reduce((sum, s) => {
                     if (s.start_time && s.end_time) {
                         const diff = new Date(s.end_time).getTime() - new Date(s.start_time).getTime();
                         return sum + diff / (1000 * 60);
                     }
                     return sum;
                 }, 0);
-                avgDuration = Math.round(totalMinutes / sessions.length);
+                avgDuration = Math.round(totalMinutes / typedSessions.length);
             }
 
             setStats({
