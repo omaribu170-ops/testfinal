@@ -1,0 +1,513 @@
+/* =====================================================
+   The Hub - ملف الأنماط العامة
+   Glassmorphism Style مع تصميم Apple
+===================================================== */
+
+@import "tailwindcss";
+
+/* =====================================================
+   إعدادات Tailwind Theme
+===================================================== */
+@theme {
+  /* الخط العربي */
+  --font-sans: var(--font-ibm-plex-arabic), ui-sans-serif, system-ui, sans-serif;
+  
+  /* ألوان البراند */
+  --color-brand-start: #E63E32;
+  --color-brand-middle: #F18A21;
+  --color-brand-end: #F8C033;
+  --color-brand-gradient: linear-gradient(90deg, #E63E32 0%, #F18A21 50%, #F8C033 100%);
+  
+  /* ألوان Glassmorphism - الوضع الفاتح */
+  --color-glass-surface: rgba(255, 255, 255, 0.65);
+  --color-glass-border: rgba(255, 255, 255, 0.4);
+  --color-glass-shadow: rgba(0, 0, 0, 0.1);
+  
+  /* ألوان النظام */
+  --color-success: #34C759;
+  --color-warning: #FF9500;
+  --color-error: #FF3B30;
+  --color-info: #007AFF;
+}
+
+/* =====================================================
+   المتغيرات الجذرية
+===================================================== */
+:root {
+  /* الخلفية - الوضع الفاتح */
+  --background: #f2f2f7;
+  --foreground: #1d1d1f;
+  --card-background: rgba(255, 255, 255, 0.8);
+  
+  /* الجراديينت */
+  --gradient-brand: linear-gradient(90deg, #E63E32 0%, #F18A21 50%, #F8C033 100%);
+  --gradient-brand-hover: linear-gradient(90deg, #D13428 0%, #E07A1A 50%, #E5B02E 100%);
+  
+  /* الظلال */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+  --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
+  
+  /* الحدود */
+  --border-radius-sm: 8px;
+  --border-radius-md: 12px;
+  --border-radius-lg: 16px;
+  --border-radius-xl: 24px;
+  --border-radius-full: 9999px;
+}
+
+/* =====================================================
+   الوضع الداكن
+===================================================== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #f5f5f7;
+    --card-background: rgba(40, 40, 40, 0.6);
+    --color-glass-surface: rgba(40, 40, 40, 0.6);
+    --color-glass-border: rgba(255, 255, 255, 0.1);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* =====================================================
+   الأنماط الأساسية للـ Body
+===================================================== */
+html {
+  direction: rtl;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* =====================================================
+   Utility Classes - كلاسات الأدوات
+===================================================== */
+
+/* Glass Effect - تأثير الزجاج */
+@utility glass {
+  background: var(--color-glass-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-glass-border);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Glass Card - بطاقة زجاجية */
+@utility glass-card {
+  background: var(--color-glass-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* Gradient Text - نص متدرج */
+@utility gradient-text {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Brand Gradient Background - خلفية متدرجة */
+@utility bg-brand-gradient {
+  background: var(--gradient-brand);
+}
+
+/* Brand Gradient Button */
+@utility btn-gradient {
+  background: var(--gradient-brand);
+  color: white;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: var(--border-radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(230, 62, 50, 0.3);
+}
+
+@utility btn-gradient:hover {
+  background: var(--gradient-brand-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(230, 62, 50, 0.4);
+}
+
+/* Glass Button */
+@utility btn-glass {
+  background: var(--color-glass-surface);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--color-glass-border);
+  padding: 12px 24px;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+@utility btn-glass:hover {
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateY(-1px);
+}
+
+/* Hover Glow Effect */
+@utility hover-glow {
+  transition: all 0.3s ease;
+}
+
+@utility hover-glow:hover {
+  box-shadow: 0 0 20px rgba(230, 62, 50, 0.3);
+}
+
+/* Input Glass Style */
+@utility input-glass {
+  background: var(--color-glass-surface);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--border-radius-md);
+  padding: 12px 16px;
+  width: 100%;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+@utility input-glass:focus {
+  border-color: var(--color-brand-start);
+  box-shadow: 0 0 0 3px rgba(230, 62, 50, 0.2);
+}
+
+/* =====================================================
+   Scrollbar Styling - تنسيق شريط التمرير
+===================================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* =====================================================
+   Animation Classes - كلاسات الحركة
+===================================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(230, 62, 50, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(230, 62, 50, 0.6);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.5s ease-out forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.5s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Loading Shimmer */
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* =====================================================
+   Tables & Cards Grid
+===================================================== */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.stat-card {
+  background: var(--color-glass-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--border-radius-lg);
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* =====================================================
+   Badge Styles
+===================================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--border-radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-success {
+  background: rgba(52, 199, 89, 0.15);
+  color: #34C759;
+}
+
+.badge-warning {
+  background: rgba(255, 149, 0, 0.15);
+  color: #FF9500;
+}
+
+.badge-error {
+  background: rgba(255, 59, 48, 0.15);
+  color: #FF3B30;
+}
+
+.badge-info {
+  background: rgba(0, 122, 255, 0.15);
+  color: #007AFF;
+}
+
+/* =====================================================
+   Modal Styles
+===================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  background: var(--color-glass-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--border-radius-xl);
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* =====================================================
+   Sidebar Styles
+===================================================== */
+.sidebar {
+  width: 280px;
+  height: 100vh;
+  position: fixed;
+  right: 0;
+  top: 0;
+  background: var(--color-glass-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid var(--color-glass-border);
+  padding: 1.5rem;
+  z-index: 40;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--border-radius-md);
+  color: var(--foreground);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.sidebar-link.active {
+  background: var(--gradient-brand);
+  color: white;
+}
+
+/* =====================================================
+   Responsive Design
+===================================================== */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    top: auto;
+    border-left: none;
+    border-top: 1px solid var(--color-glass-border);
+    padding: 0.5rem 1rem;
+    display: flex;
+    justify-content: space-around;
+  }
+  
+  .sidebar-link {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    font-size: 0.75rem;
+  }
+  
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =====================================================
+   Timer Display (للجلسات)
+===================================================== */
+.timer-display {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.timer-small {
+  font-size: 1.25rem;
+}
+
+/* =====================================================
+   Table Styles
+===================================================== */
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.data-table th {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 12px 16px;
+  text-align: right;
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-glass-border);
+}
+
+.data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-glass-border);
+}
+
+.data-table tr:hover td {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+@media (prefers-color-scheme: dark) {
+  .data-table th {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .data-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+}
