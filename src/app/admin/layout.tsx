@@ -1,25 +1,21 @@
 /* =====================================================
-   Admin Layout
-   الـ Layout الرئيسي للوحة التحكم
+   Admin Layout - الـ Layout الخاص بلوحة التحكم
 ===================================================== */
 
 import AdminSidebar from "@/components/admin/Sidebar";
 
-// =====================================================
-// Admin Layout Component
-// =====================================================
 export default function AdminLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
     return (
-        <div className="min-h-screen">
+        <div className="flex min-h-screen">
             {/* ===== الشريط الجانبي ===== */}
             <AdminSidebar />
 
             {/* ===== المحتوى الرئيسي ===== */}
-            <main className="mr-[280px] min-h-screen p-6 max-md:mr-0 max-md:pb-24">
+            <main className="flex-1 mr-0 md:mr-[280px] p-6 bg-[var(--background)]">
                 {children}
             </main>
         </div>

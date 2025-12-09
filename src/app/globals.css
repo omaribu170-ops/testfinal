@@ -11,18 +11,18 @@
 @theme {
   /* الخط العربي */
   --font-sans: var(--font-ibm-plex-arabic), ui-sans-serif, system-ui, sans-serif;
-  
+
   /* ألوان البراند */
   --color-brand-start: #E63E32;
   --color-brand-middle: #F18A21;
   --color-brand-end: #F8C033;
   --color-brand-gradient: linear-gradient(90deg, #E63E32 0%, #F18A21 50%, #F8C033 100%);
-  
+
   /* ألوان Glassmorphism - الوضع الفاتح */
   --color-glass-surface: rgba(255, 255, 255, 0.65);
   --color-glass-border: rgba(255, 255, 255, 0.4);
   --color-glass-shadow: rgba(0, 0, 0, 0.1);
-  
+
   /* ألوان النظام */
   --color-success: #34C759;
   --color-warning: #FF9500;
@@ -38,17 +38,17 @@
   --background: #f2f2f7;
   --foreground: #1d1d1f;
   --card-background: rgba(255, 255, 255, 0.8);
-  
+
   /* الجراديينت */
   --gradient-brand: linear-gradient(90deg, #E63E32 0%, #F18A21 50%, #F8C033 100%);
   --gradient-brand-hover: linear-gradient(90deg, #D13428 0%, #E07A1A 50%, #E5B02E 100%);
-  
+
   /* الظلال */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
   --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
-  
+
   /* الحدود */
   --border-radius-sm: 8px;
   --border-radius-md: 12px;
@@ -92,11 +92,11 @@ body {
 }
 
 /* =====================================================
-   Utility Classes - كلاسات الأدوات
+   Regular CSS Classes (بدلاً من @utility)
 ===================================================== */
 
 /* Glass Effect - تأثير الزجاج */
-@utility glass {
+.glass {
   background: var(--color-glass-surface);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -105,7 +105,7 @@ body {
 }
 
 /* Glass Card - بطاقة زجاجية */
-@utility glass-card {
+.glass-card {
   background: var(--color-glass-surface);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -115,7 +115,7 @@ body {
 }
 
 /* Gradient Text - نص متدرج */
-@utility gradient-text {
+.gradient-text {
   background: var(--gradient-brand);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -124,12 +124,12 @@ body {
 }
 
 /* Brand Gradient Background - خلفية متدرجة */
-@utility bg-brand-gradient {
+.bg-brand-gradient {
   background: var(--gradient-brand);
 }
 
 /* Brand Gradient Button */
-@utility btn-gradient {
+.btn-gradient {
   background: var(--gradient-brand);
   color: white;
   font-weight: 600;
@@ -141,14 +141,14 @@ body {
   box-shadow: 0 4px 15px rgba(230, 62, 50, 0.3);
 }
 
-@utility btn-gradient:hover {
+.btn-gradient:hover {
   background: var(--gradient-brand-hover);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(230, 62, 50, 0.4);
 }
 
 /* Glass Button */
-@utility btn-glass {
+.btn-glass {
   background: var(--color-glass-surface);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -159,22 +159,13 @@ body {
   transition: all 0.3s ease;
 }
 
-@utility btn-glass:hover {
+.btn-glass:hover {
   background: rgba(255, 255, 255, 0.85);
   transform: translateY(-1px);
 }
 
-/* Hover Glow Effect */
-@utility hover-glow {
-  transition: all 0.3s ease;
-}
-
-@utility hover-glow:hover {
-  box-shadow: 0 0 20px rgba(230, 62, 50, 0.3);
-}
-
 /* Input Glass Style */
-@utility input-glass {
+.input-glass {
   background: var(--color-glass-surface);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -186,7 +177,7 @@ body {
   transition: all 0.3s ease;
 }
 
-@utility input-glass:focus {
+.input-glass:focus {
   border-color: var(--color-brand-start);
   box-shadow: 0 0 0 3px rgba(230, 62, 50, 0.2);
 }
@@ -216,7 +207,7 @@ body {
   ::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.2);
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
   }
@@ -230,6 +221,7 @@ body {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -241,6 +233,7 @@ body {
     opacity: 0;
     transform: translateX(20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -252,6 +245,7 @@ body {
     opacity: 0;
     transform: translateX(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -259,9 +253,12 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 5px rgba(230, 62, 50, 0.3);
   }
+
   50% {
     box-shadow: 0 0 20px rgba(230, 62, 50, 0.6);
   }
@@ -271,6 +268,7 @@ body {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -294,12 +292,10 @@ body {
 
 /* Loading Shimmer */
 .loading-shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.5) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.5) 50%,
+      rgba(255, 255, 255, 0) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -446,14 +442,14 @@ body {
     display: flex;
     justify-content: space-around;
   }
-  
+
   .sidebar-link {
     flex-direction: column;
     gap: 4px;
     padding: 8px;
     font-size: 0.75rem;
   }
-  
+
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -506,7 +502,7 @@ body {
   .data-table th {
     background: rgba(255, 255, 255, 0.05);
   }
-  
+
   .data-table tr:hover td {
     background: rgba(255, 255, 255, 0.02);
   }
